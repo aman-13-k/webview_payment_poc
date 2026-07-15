@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart' as webview_android;
 
 void main() {
   runApp(
@@ -46,9 +48,29 @@ final webViewControllerProvider = Provider<WebViewController>((ref) {
           ref.read(webViewProgressProvider.notifier).setProgress(100);
         },
         onWebResourceError: (WebResourceError error) {},
+        onNavigationRequest: (NavigationRequest request) async {
+          final uri = Uri.parse(request.url);
+          // Handle payment and other external schemes
+          if (!['http', 'https'].contains(uri.scheme)) {
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(
+                uri,
+                mode: LaunchMode.externalApplication,
+              );
+              return NavigationDecision.prevent;
+            }
+          }
+          return NavigationDecision.navigate;
+        },
       ),
     )
     ..loadRequest(Uri.parse('https://alpha.bealls.com/login/'));
+
+  // Enable Google Pay for Android
+  if (controller.platform is webview_android.AndroidWebViewController) {
+    (controller.platform as webview_android.AndroidWebViewController).setPaymentRequestEnabled(true);
+  }
+
   return controller;
 });
 
